@@ -1,0 +1,51 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.4'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'net.xrftech.chain'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	
+	// MyBatis Plus
+	implementation 'com.baomidou:mybatis-plus-boot-starter:3.5.12'
+	
+	// Database
+	implementation 'org.postgresql:postgresql'
+	
+	// HTTP Client
+	implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+	
+	// Utilities
+	implementation 'org.apache.commons:commons-lang3:3.14.0'
+	implementation 'com.opencsv:opencsv:5.9'
+	
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
