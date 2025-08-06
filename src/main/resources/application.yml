@@ -25,6 +25,15 @@ spring:
           lob:
             non_contextual_creation: true
 
+# MyBatis Plus Configuration
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: AUTO
+      table-underline: true
+  configuration:
+    map-underscore-to-camel-case: true
+
 # Management endpoints for health checks
 management:
   endpoints:
@@ -35,6 +44,20 @@ management:
     health:
       show-details: when-authorized
 
+# Ethereum RPC Configuration
+ethereum:
+  rpc:
+    endpoint: ${ETHEREUM_RPC_ENDPOINT:https://rpc.ankr.com/eth/ee19a9a6fe722d2ce427185a1f75db2a4d414461037af02cde80e6012c518799}
+    timeout: ${ETHEREUM_RPC_TIMEOUT_SECONDS:10}
+
 # Server configuration
 server:
   port: 8080
+
+# Logging configuration
+logging:
+  level:
+    net.xrftech.chain.data: ${LOG_LEVEL:INFO}
+    okhttp3: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
