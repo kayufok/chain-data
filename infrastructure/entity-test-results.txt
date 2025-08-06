@@ -1,0 +1,34 @@
+=== Entity CRUD API Test Suite ===
+Test started at: Wed Aug  6 08:11:13 AM PDT 2025
+
+Test 1: GET All Addresses
+{"timestamp":"2025-08-06T15:11:13.817+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses"}HTTP Status: 404
+
+Test 2: POST Create Address
+{"timestamp":"2025-08-06T15:11:13.885+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses"}HTTP Status: 404
+
+Test 3: GET All Addresses After Creation
+{"timestamp":"2025-08-06T15:11:13.942+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses"}HTTP Status: 404
+
+Test 4: GET Address by ID (1)
+{"timestamp":"2025-08-06T15:11:13.980+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses/1"}HTTP Status: 404
+
+Test 5: PUT Update Address
+{"timestamp":"2025-08-06T15:11:14.007+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses/1"}HTTP Status: 404
+
+Test 6: GET All Chains
+{"timestamp":"2025-08-06T15:11:14.040+00:00","status":404,"error":"Not Found","path":"/api/v1/chains"}HTTP Status: 404
+
+Test 7: POST Create Chain
+{"timestamp":"2025-08-06T15:11:14.063+00:00","status":404,"error":"Not Found","path":"/api/v1/chains"}HTTP Status: 404
+
+Test 8: POST Invalid Address (Bad Format)
+{"timestamp":"2025-08-06T15:11:14.112+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses"}HTTP Status: 404
+
+Test 9: GET Non-existent Address (ID 999)
+{"timestamp":"2025-08-06T15:11:14.163+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses/999"}HTTP Status: 404
+
+Test 10: DELETE Address
+{"timestamp":"2025-08-06T15:11:14.212+00:00","status":404,"error":"Not Found","path":"/api/v1/addresses/1"}HTTP Status: 404
+
+=== Test completed at: Wed Aug  6 08:11:14 AM PDT 2025 ===
