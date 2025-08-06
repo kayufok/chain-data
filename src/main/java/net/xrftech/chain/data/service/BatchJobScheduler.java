@@ -7,6 +7,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -16,14 +18,23 @@ public class BatchJobScheduler {
     private final EthereumBatchProcessorService batchProcessorService;
     private final BatchProcessingProperties properties;
     
+    // Flag to track if a batch job is currently running
+    private final AtomicBoolean isJobRunning = new AtomicBoolean(false);
+    
     /**
      * Scheduled batch processing job
-     * Default: every 5 minutes (0 star/5 * * * *)
+     * Runs every 10 seconds, skips if previous job is still running
      */
-    @Scheduled(cron = "${batch.processing.schedule-cron:0 */5 * * * *}")
+    @Scheduled(fixedDelay = 10000) // 10 seconds
     public void scheduledBatchProcessing() {
         if (!properties.isEnabled()) {
             log.debug("Batch processing is disabled, skipping scheduled execution");
+            return;
+        }
+        
+        // Check if a job is already running
+        if (!isJobRunning.compareAndSet(false, true)) {
+            log.debug("Previous batch job is still running, skipping this execution");
             return;
         }
         
@@ -34,6 +45,9 @@ public class BatchJobScheduler {
             
         } catch (Exception e) {
             log.error("Error in scheduled batch processing: {}", e.getMessage(), e);
+        } finally {
+            // Always reset the flag when job completes (success or failure)
+            isJobRunning.set(false);
         }
     }
     
@@ -43,8 +57,15 @@ public class BatchJobScheduler {
     @Scheduled(fixedRate = 300000) // Every 5 minutes
     public void healthCheck() {
         if (properties.isEnabled()) {
-            log.debug("Batch job scheduler is running, next execution: {}", 
-                    properties.getScheduleCron());
+            log.debug("Batch job scheduler is running, job currently active: {}", 
+                    isJobRunning.get());
         }
+    }
+    
+    /**
+     * Check if a batch job is currently running
+     */
+    public boolean isJobCurrentlyRunning() {
+        return isJobRunning.get();
     }
 }

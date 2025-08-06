@@ -137,8 +137,8 @@ public class LogCleanupService {
             System.out.flush();
             System.err.flush();
             
-            // Request garbage collection to clean up memory
-            Runtime.getRuntime().runFinalization();
+            // Note: runFinalization() was removed as it's deprecated in Java 21
+            // The JVM handles finalization automatically when needed
             
         } catch (Exception e) {
             log.debug("Error clearing console buffer: {}", e.getMessage());

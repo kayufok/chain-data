@@ -1,57 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Console appender with memory-efficient pattern -->
+    <!-- Simple console appender only for Docker environment -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
-        <!-- Async processing to prevent blocking and reduce memory usage -->
-        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
-        </filter>
     </appender>
 
-    <!-- File appender with rolling policy to prevent OOM -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/chain-data.log</file>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        
-        <!-- Rolling policy to prevent disk space issues -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <!-- Daily rollover -->
-            <fileNamePattern>logs/chain-data.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <!-- Maximum file size before rollover -->
-            <maxFileSize>50MB</maxFileSize>
-            <!-- Keep 7 days worth of history -->
-            <maxHistory>7</maxHistory>
-            <!-- Total size of all log files -->
-            <totalSizeCap>500MB</totalSizeCap>
-            <!-- Clean up old files on startup -->
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-        
-        <!-- Immediately flush to prevent memory accumulation -->
-        <immediateFlush>true</immediateFlush>
-    </appender>
-
-    <!-- Async appender to prevent logging from blocking application -->
-    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="FILE"/>
-        <!-- Never block application threads -->
-        <neverBlock>true</neverBlock>
-        <!-- Queue size to prevent memory issues -->
-        <queueSize>256</queueSize>
-        <!-- Discard threshold to prevent queue buildup -->
-        <discardingThreshold>64</discardingThreshold>
-        <!-- Include caller data for debugging -->
-        <includeCallerData>false</includeCallerData>
-    </appender>
-
-    <!-- Reduce verbosity of specific loggers that can cause OOM -->
+    <!-- Reduce verbosity of specific loggers -->
     <logger name="com.baomidou.mybatisplus" level="WARN"/>
     <logger name="org.apache.ibatis" level="WARN"/>
     <logger name="org.springframework.jdbc" level="WARN"/>
@@ -59,48 +16,13 @@
     <logger name="org.hibernate.SQL" level="WARN"/>
     <logger name="org.hibernate.type" level="WARN"/>
     <logger name="okhttp3" level="WARN"/>
-    
-    <!-- Specific mapper loggers to prevent SQL query spam -->
     <logger name="net.xrftech.chain.data.mapper" level="WARN"/>
     
     <!-- Application loggers -->
     <logger name="net.xrftech.chain.data" level="${LOG_LEVEL:-INFO}"/>
     
-    <!-- Root logger configuration -->
+    <!-- Root logger configuration - Console only -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="ASYNC_FILE"/>
     </root>
-
-    <!-- Profile-specific configurations -->
-    <springProfile name="test">
-        <logger name="net.xrftech.chain.data" level="INFO"/>
-        <appender name="TEST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-            <file>logs/chain-data-test.log</file>
-            <encoder>
-                <pattern>%d{HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
-            </encoder>
-            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-                <fileNamePattern>logs/chain-data-test.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-                <maxFileSize>10MB</maxFileSize>
-                <maxHistory>3</maxHistory>
-                <totalSizeCap>50MB</totalSizeCap>
-            </rollingPolicy>
-        </appender>
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="TEST_FILE"/>
-        </root>
-    </springProfile>
-
-    <springProfile name="local">
-        <logger name="net.xrftech.chain.data" level="INFO"/>
-    </springProfile>
-
-    <springProfile name="prod">
-        <logger name="net.xrftech.chain.data" level="WARN"/>
-        <root level="WARN">
-            <appender-ref ref="ASYNC_FILE"/>
-        </root>
-    </springProfile>
 </configuration>
