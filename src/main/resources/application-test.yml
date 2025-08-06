@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: chain-data
+  
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:us.xrftech.net}:${POSTGRES_PORT:5432}/${POSTGRES_DB:chaindata}
+    username: ${POSTGRES_USER:chainuser}
+    password: ${POSTGRES_PASSWORD:changeme123}
+    driver-class-name: org.postgresql.Driver
+
+# MyBatis Plus Configuration
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: AUTO
+      table-underline: true
+  configuration:
+    map-underscore-to-camel-case: true
+
+# Batch Processing Configuration (disabled for testing)
+batch:
+  processing:
+    enabled: false
+    batch-size: 10
+    rate-limit-per-minute: 100
+    retry-attempts: 3
+    schedule-cron: "0 */1 * * * *"
+    chain-id: "1"
+    
+# Server configuration
+server:
+  port: 8080
+  
+# Logging configuration
+logging:
+  level:
+    net.xrftech.chain.data: INFO
+    net.xrftech.chain.data.mapper: WARN  # Reduce MyBatis Plus verbosity
+    com.baomidou.mybatisplus: WARN        # Reduce MyBatis Plus verbosity
+    org.springframework.jdbc: WARN        # Reduce database query logging
+    org.apache.ibatis: WARN               # Reduce iBatis logging
+    root: INFO
+  pattern:
+    console: "%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/chain-data-test.log
+    max-size: 10MB
+    max-history: 3
+    total-size-cap: 50MB

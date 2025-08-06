@@ -58,6 +58,31 @@ server:
 logging:
   level:
     net.xrftech.chain.data: ${LOG_LEVEL:INFO}
+    net.xrftech.chain.data.mapper: WARN  # Reduce MyBatis Plus verbosity
+    com.baomidou.mybatisplus: WARN        # Reduce MyBatis Plus verbosity
     okhttp3: WARN
+    org.springframework.jdbc: WARN        # Reduce database query logging
+    org.apache.ibatis: WARN               # Reduce iBatis logging
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/chain-data.log
+    max-size: 50MB
+    max-history: 7
+    total-size-cap: 500MB
+
+# Batch Processing Configuration
+batch:
+  processing:
+    enabled: ${BATCH_PROCESSING_ENABLED:true}
+    batch-size: ${BATCH_SIZE:100}
+    rate-limit-per-minute: ${RATE_LIMIT_PER_MINUTE:1500}
+    retry-attempts: ${RETRY_ATTEMPTS:3}
+    schedule-cron: ${BATCH_SCHEDULE_CRON:0 */5 * * * *}
+    chain-id: ${CHAIN_ID:1}
+    metrics-enabled: ${BATCH_METRICS_ENABLED:true}
+    alerts-enabled: ${BATCH_ALERTS_ENABLED:false}
+    bulk-insert-enabled: ${BULK_INSERT_ENABLED:true}
+    max-consecutive-failures: ${MAX_CONSECUTIVE_FAILURES:10}
+    retry-delay-ms: ${RETRY_DELAY_MS:1000}
