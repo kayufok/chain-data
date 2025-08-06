@@ -40,4 +40,6 @@ gradle/
 .bmad-core/
 .cursor/
 web-bundles/
-src/main/resources/application-local.yml
+
+# Ignore local configuration files
+**/application-local.yml
