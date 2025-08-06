@@ -60,4 +60,4 @@ logging:
     net.xrftech.chain.data: ${LOG_LEVEL:INFO}
     okhttp3: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" 

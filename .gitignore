@@ -40,3 +40,4 @@ gradle/
 .bmad-core/
 .cursor/
 web-bundles/
+src/main/resources/application-local.yml
