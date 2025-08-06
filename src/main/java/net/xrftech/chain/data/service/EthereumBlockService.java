@@ -8,10 +8,10 @@ import net.xrftech.chain.data.dto.RpcResponse;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -77,7 +77,7 @@ public class EthereumBlockService {
 
         // Extract unique addresses from 'from' and 'to' fields
         Set<String> uniqueAddresses = new LinkedHashSet<>();
-        
+
         for (RpcResponse.EthTransaction transaction : transactions) {
             if (transaction.getFrom() != null && !transaction.getFrom().trim().isEmpty()) {
                 uniqueAddresses.add(transaction.getFrom());
@@ -96,7 +96,7 @@ public class EthereumBlockService {
         BlockAddressResponse.BlockAddressData data = BlockAddressResponse.BlockAddressData.builder()
                 .blockHeight(blockHeightDecimal)
                 .blockHash(block.getHash())
-                .addresses(uniqueAddresses.stream().collect(Collectors.toList()))
+                .addresses(new ArrayList<>(uniqueAddresses))
                 .transactionCount(transactions.size())
                 .uniqueAddressCount(uniqueAddresses.size())
                 .timestamp(blockTimestamp)

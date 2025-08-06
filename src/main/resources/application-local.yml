@@ -3,7 +3,7 @@ spring:
     name: chain-data
   
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:postgres-db}:${POSTGRES_PORT:5432}/${POSTGRES_DB:chaindata}
+    url: jdbc:postgresql://${POSTGRES_HOST:us.xrftech.net}:${POSTGRES_PORT:5432}/${POSTGRES_DB:chaindata}
     username: ${POSTGRES_USER:chainuser}
     password: ${POSTGRES_PASSWORD:changeme123}
     driver-class-name: org.postgresql.Driver
