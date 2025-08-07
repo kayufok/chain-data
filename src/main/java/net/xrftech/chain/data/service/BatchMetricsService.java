@@ -66,7 +66,7 @@ public class BatchMetricsService {
     public void stopJob() {
         this.currentJobStatus = BatchJobStatus.STOPPING;
         this.jobEndTime = LocalDateTime.now();
-        log.info("Batch job stopped at block {}", currentBlockNumber);
+        log.info("Batch job stopped, next block to process: {}", currentBlockNumber);
         this.currentJobStatus = BatchJobStatus.STOPPED;
     }
     
@@ -77,8 +77,9 @@ public class BatchMetricsService {
         this.currentJobStatus = BatchJobStatus.COMPLETED;
         this.jobEndTime = LocalDateTime.now();
         this.totalBatches.incrementAndGet();
-        log.info("Batch job completed. Processed {} blocks, found {} addresses", 
-                blocksProcessed.get(), addressesFound.get());
+        // currentBlockNumber already represents the next block to be processed
+        log.info("Batch job completed. Processed {} blocks, found {} addresses, next block: {}", 
+                blocksProcessed.get(), addressesFound.get(), this.currentBlockNumber);
     }
     
     /**
@@ -94,15 +95,15 @@ public class BatchMetricsService {
      * Record a successfully processed block
      */
     public void recordBlockProcessed(long blockNumber, int addressCount) {
-        this.currentBlockNumber = blockNumber;
+        this.currentBlockNumber = blockNumber + 1; // Set to next block to be processed
         this.blocksProcessed.incrementAndGet();
         this.addressesFound.addAndGet(addressCount);
         this.blocksInCurrentBatch++;
         this.consecutiveFailures.set(0); // Reset consecutive failures on success
         
         if (blocksProcessed.get() % 10 == 0) {
-            log.info("Progress: Processed {} blocks, found {} addresses, current block: {}", 
-                    blocksProcessed.get(), addressesFound.get(), blockNumber);
+            log.info("Progress: Processed {} blocks, found {} addresses, next block: {}", 
+                    blocksProcessed.get(), addressesFound.get(), this.currentBlockNumber);
         }
     }
     
@@ -110,7 +111,7 @@ public class BatchMetricsService {
      * Record a failed block
      */
     public void recordBlockFailed(long blockNumber, String errorMessage) {
-        this.currentBlockNumber = blockNumber;
+        this.currentBlockNumber = blockNumber + 1; // Set to next block to be processed
         this.failedBlocks.incrementAndGet();
         this.consecutiveFailures.incrementAndGet();
         

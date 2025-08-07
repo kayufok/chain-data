@@ -12,7 +12,7 @@ public class BatchProcessingProperties {
     /**
      * Number of blocks to process per batch
      */
-    private int batchSize = 100;
+    private int batchSize = 200;
     
     /**
      * API requests per minute rate limit

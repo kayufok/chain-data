@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,7 +41,6 @@ public class EthereumBatchProcessorService {
     /**
      * Process a batch of blocks starting from the next block number
      */
-    @Transactional
     public void processBatch() {
         if (metricsService.isJobRunning()) {
             log.warn("Batch job already running, skipping this execution");
@@ -140,7 +140,7 @@ public class EthereumBatchProcessorService {
         } catch (Exception e) {
             log.error("Failed to process block {}: {}", blockNumber, e.getMessage());
             recordFailure(blockNumber, e.getMessage());
-            throw e;
+            // Don't re-throw to avoid transaction rollback
         }
     }
     
@@ -178,6 +178,10 @@ public class EthereumBatchProcessorService {
                         );
                         if (existing != null) {
                             address.setId(existing.getId());
+                        } else {
+                            // If we can't find the existing address, log the error but don't fail the transaction
+                            log.warn("Failed to insert address {} and couldn't find existing: {}", 
+                                    address.getWalletAddress(), e.getMessage());
                         }
                     }
                 }
@@ -210,7 +214,7 @@ public class EthereumBatchProcessorService {
             
         } catch (Exception e) {
             log.error("Error storing addresses and relationships: {}", e.getMessage(), e);
-            throw e;
+            // Don't re-throw the exception to avoid transaction rollback
         }
     }
     
@@ -231,6 +235,7 @@ public class EthereumBatchProcessorService {
             
         } catch (Exception e) {
             log.error("Failed to record failure log: {}", e.getMessage());
+            // Don't re-throw to avoid transaction rollback
         }
     }
     
@@ -241,12 +246,14 @@ public class EthereumBatchProcessorService {
     public void updateNextBlockNumber(ChainInfo chainInfo, long nextBlockNumber) {
         try {
             chainInfo.setNextBlockNumber(nextBlockNumber);
+            chainInfo.setUpdatedAt(LocalDateTime.now());
             chainInfoMapper.updateById(chainInfo);
             
             log.info("Updated next block number to {} for chain {}", nextBlockNumber, chainInfo.getChainName());
             
         } catch (Exception e) {
             log.error("Failed to update next block number: {}", e.getMessage());
+            // Don't re-throw to avoid transaction rollback
         }
     }
     
