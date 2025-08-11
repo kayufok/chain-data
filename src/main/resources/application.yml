@@ -65,14 +65,18 @@ logging:
 # Batch Processing Configuration
 batch:
   processing:
-    enabled: ${BATCH_PROCESSING_ENABLED:true}
+    enabled: ${BATCH_PROCESSING_ENABLED:false}  # Disable old batch processing
     batch-size: ${BATCH_SIZE:200}
     rate-limit-per-minute: ${RATE_LIMIT_PER_MINUTE:1500}
     retry-attempts: ${RETRY_ATTEMPTS:3}
-    schedule-cron: ${BATCH_SCHEDULE_CRON:0 */5 * * * *}
+    schedule-cron: ${BATCH_SCHEDULE_CRON:*/10 * * * * *}
     chain-id: ${CHAIN_ID:1}
     metrics-enabled: ${BATCH_METRICS_ENABLED:true}
     alerts-enabled: ${BATCH_ALERTS_ENABLED:false}
     bulk-insert-enabled: ${BULK_INSERT_ENABLED:true}
     max-consecutive-failures: ${MAX_CONSECUTIVE_FAILURES:10}
     retry-delay-ms: ${RETRY_DELAY_MS:1000}
+    # Pre-fetch batch processing configuration (ENABLED)
+    prefetch-enabled: ${PREFETCH_ENABLED:true}
+    max-concurrent-rpc-calls: ${MAX_CONCURRENT_RPC_CALLS:5}
+    memory-threshold-mb: ${MEMORY_THRESHOLD_MB:1800}

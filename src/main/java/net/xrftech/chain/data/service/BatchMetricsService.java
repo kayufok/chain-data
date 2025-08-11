@@ -54,7 +54,7 @@ public class BatchMetricsService {
         this.jobEndTime = null;
         this.currentBlockNumber = startingBlockNumber;
         this.batchSize = batchSize;
-        this.blocksInCurrentBatch = 0;
+        this.blocksInCurrentBatch = 0; // Reset counter for new batch
         
         log.info("Batch job started: block {} with batch size {}", startingBlockNumber, batchSize);
         this.currentJobStatus = BatchJobStatus.RUNNING;
@@ -127,7 +127,16 @@ public class BatchMetricsService {
         metrics.setJobStatus(currentJobStatus);
         metrics.setCurrentBlockNumber(currentBlockNumber);
         metrics.setBlocksProcessed(blocksProcessed.get());
-        metrics.setBlocksRemaining(Math.max(0, batchSize - blocksInCurrentBatch));
+        
+        // Calculate blocks remaining based on job status
+        if (currentJobStatus == BatchJobStatus.COMPLETED || currentJobStatus == BatchJobStatus.STOPPED) {
+            // Job is done, no blocks remaining
+            metrics.setBlocksRemaining(0);
+        } else {
+            // Job is running, calculate remaining blocks in current batch
+            metrics.setBlocksRemaining(Math.max(0, batchSize - blocksInCurrentBatch));
+        }
+        
         metrics.setAddressesFound(addressesFound.get());
         metrics.setFailedBlocks(failedBlocks.get());
         metrics.setJobStartTime(jobStartTime);
@@ -171,6 +180,7 @@ public class BatchMetricsService {
         jobStartTime = null;
         jobEndTime = null;
         currentJobStatus = BatchJobStatus.IDLE;
+        // Note: totalBatches is NOT reset here as it should accumulate across multiple batches
         
         log.info("Batch metrics reset");
     }

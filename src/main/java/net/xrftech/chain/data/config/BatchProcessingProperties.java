@@ -12,7 +12,7 @@ public class BatchProcessingProperties {
     /**
      * Number of blocks to process per batch
      */
-    private int batchSize = 200;
+    private int batchSize = 150;
     
     /**
      * API requests per minute rate limit
@@ -63,4 +63,19 @@ public class BatchProcessingProperties {
      * Delay between retries in milliseconds
      */
     private long retryDelayMs = 1000;
+    
+    /**
+     * Maximum number of concurrent RPC calls for pre-fetch processing
+     */
+    private int maxConcurrentRpcCalls = 10;
+    
+    /**
+     * Enable pre-fetch batch processing
+     */
+    private boolean prefetchEnabled = true;
+    
+    /**
+     * Memory threshold in MB for batch processing
+     */
+    private int memoryThresholdMb = 1800;
 }
