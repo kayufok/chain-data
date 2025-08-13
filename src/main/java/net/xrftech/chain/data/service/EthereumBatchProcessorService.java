@@ -29,7 +29,9 @@ public class EthereumBatchProcessorService {
     private final EthereumBlockService ethereumBlockService;
     private final RateLimiter rateLimiter;
     private final BatchMetricsService metricsService;
+    private final AddressCacheService addressCacheService;
     private final BatchProcessingProperties properties;
+    private final BulkInsertService bulkInsertService;
     
     private final AddressMapper addressMapper;
     private final AddressChainMapper addressChainMapper;
@@ -123,8 +125,8 @@ public class EthereumBatchProcessorService {
                 // Extract unique addresses
                 Set<String> uniqueAddresses = new HashSet<>(blockData.getData().getAddresses());
                 
-                // Store addresses and relationships
-                storeAddressesAndRelationships(uniqueAddresses, chainInfoId);
+                // Store addresses and relationships using optimized bulk operations
+                bulkInsertService.bulkInsertAddressesAndRelationships(uniqueAddresses, chainInfoId);
                 
                 // Record success metrics
                 metricsService.recordBlockProcessed(blockNumber, uniqueAddresses.size());
@@ -291,6 +293,18 @@ public class EthereumBatchProcessorService {
      * Get current batch processing metrics
      */
     public BatchMetricsService.BatchMetrics getMetrics() {
-        return metricsService.getCurrentMetrics();
+        BatchMetricsService.BatchMetrics metrics = metricsService.getCurrentMetrics();
+        AddressCacheService.CacheStats stats = addressCacheService.getStatsSnapshot();
+        int totalLookups = stats.getHits() + stats.getMisses();
+        int hitRate = totalLookups == 0 ? 0 : (int) Math.round((stats.getHits() * 100.0) / totalLookups);
+
+        metrics.setCacheSize(stats.getSize());
+        metrics.setCacheMaxSize(stats.getMaxSize());
+        metrics.setCacheHits(stats.getHits());
+        metrics.setCacheMisses(stats.getMisses());
+        metrics.setCacheSkippedDbOps(stats.getSkippedDbOperations());
+        metrics.setCacheUtilizationPercent(stats.getUtilizationPercent());
+        metrics.setCacheHitRatePercent(hitRate);
+        return metrics;
     }
 }

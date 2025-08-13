@@ -3,12 +3,14 @@ package net.xrftech.chain.data.controller;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.xrftech.chain.data.service.AddressCacheService;
 import net.xrftech.chain.data.service.BatchMetricsService;
 import net.xrftech.chain.data.service.EthereumBatchProcessorService;
 import net.xrftech.chain.data.service.LogCleanupService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -19,6 +21,7 @@ public class BatchController {
     
     private final EthereumBatchProcessorService batchProcessorService;
     private final LogCleanupService logCleanupService;
+    private final AddressCacheService addressCacheService;
     
     @Data
     public static class ApiResponse<T> {
@@ -174,27 +177,65 @@ public class BatchController {
     @GetMapping("/memory-status")
     public ResponseEntity<ApiResponse<String>> getMemoryStatus() {
         try {
-            Runtime runtime = Runtime.getRuntime();
-            long totalMemory = runtime.totalMemory();
-            long freeMemory = runtime.freeMemory();
-            long usedMemory = totalMemory - freeMemory;
-            long maxMemory = runtime.maxMemory();
+            AddressCacheService.MemoryStats memoryStats = addressCacheService.getMemoryStats();
+            String status = String.format("Memory Usage: %d/%d MB (%.1f%%), Free: %d MB", 
+                    memoryStats.getUsedMemoryMB(), 
+                    memoryStats.getMaxMemoryMB(),
+                    memoryStats.getMemoryUsagePercent(),
+                    memoryStats.getFreeMemoryMB());
             
-            String memoryInfo = String.format(
-                    "Used: %d MB, Free: %d MB, Total: %d MB, Max: %d MB (%.1f%% used)",
-                    usedMemory / (1024 * 1024),
-                    freeMemory / (1024 * 1024),
-                    totalMemory / (1024 * 1024),
-                    maxMemory / (1024 * 1024),
-                    (double) usedMemory / totalMemory * 100
-            );
-            
-            return ResponseEntity.ok(ApiResponse.success(memoryInfo));
+            return ResponseEntity.ok(ApiResponse.success(status));
             
         } catch (Exception e) {
             log.error("Error getting memory status: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(ApiResponse.error("Failed to get memory status: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Get detailed cache statistics
+     */
+    @GetMapping("/cache-stats")
+    public ResponseEntity<ApiResponse<Object>> getCacheStats() {
+        try {
+            AddressCacheService.CacheStats cacheStats = addressCacheService.getStatsSnapshot();
+            AddressCacheService.MemoryStats memoryStats = addressCacheService.getMemoryStats();
+            
+            return ResponseEntity.ok(ApiResponse.success(Map.of(
+                    "cache", cacheStats,
+                    "memory", memoryStats
+            )));
+            
+        } catch (Exception e) {
+            log.error("Error getting cache stats: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Failed to get cache stats: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Trigger manual cache cleanup
+     */
+    @PostMapping("/cache-cleanup")
+    public ResponseEntity<ApiResponse<String>> triggerCacheCleanup() {
+        try {
+            addressCacheService.performDecayAndEviction();
+            AddressCacheService.CacheStats stats = addressCacheService.getStatsSnapshot();
+            
+            String result = String.format("Cache cleanup completed. Size: %d/%d (%.1f%%), Hit rate: %.1f%%", 
+                    stats.getSize(), 
+                    stats.getMaxSize(),
+                    stats.getUtilizationPercent(),
+                    stats.getHits() + stats.getMisses() > 0 ? 
+                        (stats.getHits() * 100.0 / (stats.getHits() + stats.getMisses())) : 0);
+            
+            return ResponseEntity.ok(ApiResponse.success(result));
+            
+        } catch (Exception e) {
+            log.error("Error during cache cleanup: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Cache cleanup failed: " + e.getMessage()));
         }
     }
 }

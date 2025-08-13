@@ -80,3 +80,17 @@ batch:
     prefetch-enabled: ${PREFETCH_ENABLED:true}
     max-concurrent-rpc-calls: ${MAX_CONCURRENT_RPC_CALLS:5}
     memory-threshold-mb: ${MEMORY_THRESHOLD_MB:1800}
+
+# Address Cache Configuration (US-006) - OPTIMIZED for 20M addresses + 100MB RAM
+blockchain:
+  address:
+    cache:
+      enabled: ${ADDRESS_CACHE_ENABLED:true}
+      max-size: ${ADDRESS_CACHE_MAX_SIZE:1000000}     # 1M entries (~80MB) - utilize available RAM
+      default-value: ${ADDRESS_CACHE_DEFAULT_VALUE:50}  # Reduced initial score for faster decay
+      decay-amount: ${ADDRESS_CACHE_DECAY_AMOUNT:2}     # Faster decay to make room for new entries
+      lru-eviction-enabled: ${ADDRESS_CACHE_LRU_ENABLED:true}
+      logging-level: ${ADDRESS_CACHE_LOG_LEVEL:INFO}
+      # New optimizations
+      batch-eviction-size: ${ADDRESS_CACHE_BATCH_EVICTION:10000}  # Evict in larger batches
+      memory-check-enabled: ${ADDRESS_CACHE_MEMORY_CHECK:true}    # Monitor memory usage

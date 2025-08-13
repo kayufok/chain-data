@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.xrftech.chain.data.config.BatchProcessingProperties;
 import net.xrftech.chain.data.dto.BlockAddressResponse;
-import net.xrftech.chain.data.entity.Address;
-import net.xrftech.chain.data.entity.AddressChain;
 import net.xrftech.chain.data.entity.ApiCallFailureLog;
 import net.xrftech.chain.data.entity.ChainInfo;
 import net.xrftech.chain.data.mapper.AddressChainMapper;
@@ -17,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -31,23 +30,25 @@ public class PreFetchBatchProcessorService {
     private final EthereumBlockService ethereumBlockService;
     private final RateLimiter rateLimiter;
     private final BatchMetricsService metricsService;
+    private final AddressCacheService addressCacheService;
     private final BatchProcessingProperties properties;
+    private final BulkInsertService bulkInsertService;
     
-    private final AddressMapper addressMapper;
-    private final AddressChainMapper addressChainMapper;
     private final ApiCallFailureLogMapper failureLogMapper;
     private final ChainInfoMapper chainInfoMapper;
     
 
     
     private volatile boolean stopRequested = false;
+    private final AtomicBoolean isProcessing = new AtomicBoolean(false);
     
     /**
      * Process a batch of blocks using pre-fetch strategy with concurrent RPC calls
      */
     public void processBatch() {
-        if (metricsService.isJobRunning()) {
-            log.warn("Batch job already running, skipping this execution");
+        // Atomic concurrency control - only one batch can run at a time
+        if (!isProcessing.compareAndSet(false, true)) {
+            log.warn("Batch processing already running, skipping this execution");
             return;
         }
         
@@ -63,34 +64,67 @@ public class PreFetchBatchProcessorService {
             int batchSize = properties.getBatchSize();
             
             log.info("Starting pre-fetch batch processing from block {} with batch size {}", startBlock, batchSize);
+            
+            // Start new job for this batch
             metricsService.startJob(startBlock, batchSize);
+            
+            // Each processBatch() call is one batch
+            metricsService.startBatch(startBlock, batchSize);
+            // Reset per-batch cache counters
+            addressCacheService.resetBatchCounters();
             
             // Reset stop flag
             stopRequested = false;
             
             // Phase 1: Pre-fetch all blocks concurrently
+            metricsService.startPreFetchPhase();
             Map<Long, Set<String>> blockAddresses = preFetchPhase(startBlock, batchSize);
+            metricsService.completePreFetchPhase();
             
             if (stopRequested) {
                 metricsService.stopJob();
                 return;
             }
             
-            // Phase 2: Storage phase
+            // Phase 2: Storage phase with cache optimization
+            metricsService.startDbActivityPhase();
             storagePhase(blockAddresses, chainInfo.getId());
+            metricsService.completeDbActivityPhase();
+
+            // Log cache metrics for this batch
+            AddressCacheService.CacheStats cacheStats = addressCacheService.getStatsSnapshot();
+            int lookups = cacheStats.getHits() + cacheStats.getMisses();
+            int hitRate = lookups == 0 ? 0 : (int) Math.round((cacheStats.getHits() * 100.0) / lookups);
+            log.info("Cache hit rate: {}%, Skipped operations: {}, Size: {}/{} ({}%)",
+                    hitRate,
+                    cacheStats.getSkippedDbOperations(),
+                    cacheStats.getSize(),
+                    cacheStats.getMaxSize(),
+                    cacheStats.getUtilizationPercent());
             
             // Update next block number regardless of success/failure
             updateNextBlockNumber(chainInfo, startBlock + batchSize);
             
+            // Always complete the batch
+            metricsService.completeBatch();
+            
             if (stopRequested) {
+                log.info("Stop requested, stopping job");
                 metricsService.stopJob();
             } else {
+                // Complete job after each batch to allow next batch to start
+                // Each batch run is treated as a separate job
+                log.info("Completing job to allow next batch to start");
                 metricsService.completeJob();
             }
             
         } catch (Exception e) {
             log.error("Critical error in pre-fetch batch processing: {}", e.getMessage(), e);
             metricsService.errorJob(e.getMessage());
+        } finally {
+            // Always release the processing lock
+            isProcessing.set(false);
+            log.info("Batch processing lock released, next batch can start");
         }
     }
     
@@ -192,12 +226,41 @@ public class PreFetchBatchProcessorService {
             
             log.info("Collected {} unique addresses across all blocks", allAddresses.size());
             
-            // Bulk insert addresses if any exist
-            if (!allAddresses.isEmpty()) {
-                bulkInsertAddresses(allAddresses);
+            // Apply cache optimization: filter out addresses that are present in cache
+            Set<String> addressesToPersist = new HashSet<>();
+            for (String address : allAddresses) {
+                boolean hit = addressCacheService.checkAndBoostIfPresent(address);
+                if (!hit) {
+                    addressesToPersist.add(address);
+                }
+            }
+
+            // Bulk insert only the addresses not found in cache using optimized bulk operations
+            if (!addressesToPersist.isEmpty()) {
+                log.info("Starting bulk insert for {} new addresses", addressesToPersist.size());
                 
-                // Create address-chain relationships
-                bulkInsertAddressChainRelationships(allAddresses, chainInfoId);
+                // Optimize database for bulk operations
+                bulkInsertService.optimizeForBulkOperations();
+                
+                try {
+                    // Use the new high-performance bulk insert service
+                    bulkInsertService.bulkInsertAddressesAndRelationships(addressesToPersist, chainInfoId);
+                    
+                } finally {
+                    // Reset database optimizations
+                    bulkInsertService.resetOptimizations();
+                }
+                
+                // Phase 3: Cache update phase
+                metricsService.startCacheUpdatePhase();
+                try {
+                    // Add newly persisted addresses to cache with default counter
+                    addressCacheService.addAllIfAbsent(addressesToPersist);
+                } finally {
+                    metricsService.completeCacheUpdatePhase();
+                }
+                
+                log.info("Bulk insert completed for {} addresses", addressesToPersist.size());
             }
             
             // Record metrics for ALL blocks in the batch, including those with no addresses
@@ -218,95 +281,7 @@ public class PreFetchBatchProcessorService {
         }
     }
     
-    /**
-     * Bulk insert addresses
-     */
-    private void bulkInsertAddresses(Set<String> addresses) {
-        if (addresses.isEmpty()) {
-            return;
-        }
-        
-        try {
-            List<Address> addressEntities = addresses.stream()
-                    .map(addr -> Address.builder()
-                            .walletAddress(addr)
-                            .build())
-                    .collect(Collectors.toList());
-            
-            // Insert addresses in batches to avoid memory issues
-            int batchSize = 100;
-            for (int i = 0; i < addressEntities.size(); i += batchSize) {
-                int endIndex = Math.min(i + batchSize, addressEntities.size());
-                List<Address> batch = addressEntities.subList(i, endIndex);
-                
-                for (Address address : batch) {
-                    try {
-                        addressMapper.insert(address);
-                    } catch (Exception e) {
-                        // Address already exists, get the existing one
-                        Address existing = addressMapper.selectOne(
-                                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Address>()
-                                        .eq("wallet_address", address.getWalletAddress())
-                        );
-                        if (existing != null) {
-                            address.setId(existing.getId());
-                        } else {
-                            log.warn("Failed to insert address {} and couldn't find existing: {}", 
-                                    address.getWalletAddress(), e.getMessage());
-                        }
-                    }
-                }
-            }
-            
-            log.debug("Bulk inserted {} addresses", addresses.size());
-            
-        } catch (Exception e) {
-            log.error("Error bulk inserting addresses: {}", e.getMessage(), e);
-            throw e;
-        }
-    }
-    
-    /**
-     * Bulk insert address-chain relationships
-     */
-    private void bulkInsertAddressChainRelationships(Set<String> addresses, Long chainInfoId) {
-        if (addresses.isEmpty()) {
-            return;
-        }
-        
-        try {
-            // Get address IDs for the addresses
-            List<Address> addressEntities = addressMapper.selectList(
-                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Address>()
-                            .in("wallet_address", addresses)
-            );
-            
-            // Create address-chain relationships
-            List<AddressChain> relationships = addressEntities.stream()
-                    .map(address -> AddressChain.builder()
-                            .walletAddressId(address.getId())
-                            .chainId(chainInfoId)
-                            .build())
-                    .collect(Collectors.toList());
-            
-            // Insert relationships (ignore duplicates)
-            for (AddressChain relationship : relationships) {
-                try {
-                    addressChainMapper.insert(relationship);
-                } catch (Exception e) {
-                    // Relationship already exists, ignore
-                    log.debug("Address-chain relationship already exists: addressId={}, chainId={}", 
-                            relationship.getWalletAddressId(), relationship.getChainId());
-                }
-            }
-            
-            log.debug("Bulk inserted {} address-chain relationships", relationships.size());
-            
-        } catch (Exception e) {
-            log.error("Error bulk inserting address-chain relationships: {}", e.getMessage(), e);
-            throw e;
-        }
-    }
+    // Old inefficient bulk insert methods removed - now using BulkInsertService
     
     /**
      * Record API call failure
@@ -372,13 +347,25 @@ public class PreFetchBatchProcessorService {
      * Check if batch processing is currently running
      */
     public boolean isRunning() {
-        return metricsService.isJobRunning();
+        return isProcessing.get();
     }
     
     /**
      * Get current batch processing metrics
      */
     public BatchMetricsService.BatchMetrics getMetrics() {
-        return metricsService.getCurrentMetrics();
+        BatchMetricsService.BatchMetrics metrics = metricsService.getCurrentMetrics();
+        AddressCacheService.CacheStats stats = addressCacheService.getStatsSnapshot();
+        int totalLookups = stats.getHits() + stats.getMisses();
+        int hitRate = totalLookups == 0 ? 0 : (int) Math.round((stats.getHits() * 100.0) / totalLookups);
+
+        metrics.setCacheSize(stats.getSize());
+        metrics.setCacheMaxSize(stats.getMaxSize());
+        metrics.setCacheHits(stats.getHits());
+        metrics.setCacheMisses(stats.getMisses());
+        metrics.setCacheSkippedDbOps(stats.getSkippedDbOperations());
+        metrics.setCacheUtilizationPercent(stats.getUtilizationPercent());
+        metrics.setCacheHitRatePercent(hitRate);
+        return metrics;
     }
 }

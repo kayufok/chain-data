@@ -28,20 +28,9 @@ public class PreFetchBatchJobScheduler {
         log.info("Scheduled pre-fetch batch processing triggered");
         
         try {
-            if (preFetchBatchProcessorService.isRunning()) {
-                log.warn("Pre-fetch batch processing already running, skipping scheduled execution");
-                return;
-            }
-            
-            // Start processing in a separate thread to avoid blocking the scheduler
-            new Thread(() -> {
-                try {
-                    preFetchBatchProcessorService.processBatch();
-                    log.info("Scheduled pre-fetch batch processing completed");
-                } catch (Exception e) {
-                    log.error("Error in scheduled pre-fetch batch processing: {}", e.getMessage(), e);
-                }
-            }).start();
+            // Directly call processBatch - it has its own concurrency control
+            // This eliminates the race condition between isRunning() check and thread creation
+            preFetchBatchProcessorService.processBatch();
             
         } catch (Exception e) {
             log.error("Failed to start scheduled pre-fetch batch processing: {}", e.getMessage(), e);

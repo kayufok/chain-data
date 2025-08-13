@@ -25,13 +25,13 @@ class PreFetchBatchProcessorServiceTest {
     private BatchMetricsService metricsService;
     
     @Mock
+    private AddressCacheService addressCacheService;
+    
+    @Mock
     private BatchProcessingProperties properties;
     
     @Mock
-    private AddressMapper addressMapper;
-    
-    @Mock
-    private AddressChainMapper addressChainMapper;
+    private BulkInsertService bulkInsertService;
     
     @Mock
     private ApiCallFailureLogMapper failureLogMapper;
@@ -54,9 +54,9 @@ class PreFetchBatchProcessorServiceTest {
                 ethereumBlockService,
                 rateLimiter,
                 metricsService,
+                addressCacheService,
                 properties,
-                addressMapper,
-                addressChainMapper,
+                bulkInsertService,
                 failureLogMapper,
                 chainInfoMapper
         );
